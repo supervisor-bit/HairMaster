@@ -799,10 +799,10 @@ export function VisitForm({ client, onSubmit, onCancel, initialData }) {
                                                     <SmartSelect
                                                         options={availableProducts
                                                             .filter(p => {
-                                                                if (block.type === 'color') return ['color', 'bleach'].includes(p.category);
+                                                                if (block.type === 'color') return ['color', 'bleach', 'preliv'].includes(p.category);
                                                                 if (block.type === 'retail') return ['retail', 'care', 'styling'].includes(p.category);
                                                                 // For 'simple' (other services), exclude technical chemicals
-                                                                return !['color', 'bleach', 'oxidant'].includes(p.category);
+                                                                return !['color', 'bleach', 'oxidant', 'preliv'].includes(p.category);
                                                             })
                                                             .map(p => ({
                                                                 ...p,

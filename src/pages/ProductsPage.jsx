@@ -3,13 +3,18 @@ import { useProducts } from '../hooks/useProducts';
 import { ProductList } from '../components/ProductList';
 import { ProductForm } from '../components/ProductForm';
 import { ProductDetail } from '../components/ProductDetail';
-import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ProductCategoryHelp } from '../components/ProductCategoryHelp';
+import { downloadProductTemplate, parseProductCSV } from '../utils/csvHelper';
+import { useToast } from '../components/Toast';
+import { db } from '../firebase';
+import { writeBatch, doc, collection } from 'firebase/firestore';
 
 export function ProductsPage() {
     const { products, addProduct, updateProduct, deleteProduct } = useProducts();
+    const { addToast } = useToast();
     const [view, setView] = useState('list'); // 'list', 'detail', 'form'
     const [selectedProduct, setSelectedProduct] = useState(null);
+
     const [confirmDialog, setConfirmDialog] = useState(null);
     const [showHelp, setShowHelp] = useState(false);
 
@@ -27,15 +32,16 @@ export function ProductsPage() {
         setView('form');
     };
 
-    const handleSave = (data) => {
+    const handleSave = (data, keepOpen = false) => {
         if (selectedProduct) {
             updateProduct(selectedProduct.id, data);
-            // Update selected product locally to reflect changes immediately if we go back to detail
             setSelectedProduct({ ...selectedProduct, ...data });
-            setView('detail');
+            addToast('Změny uloženy ✅', 'success');
+            if (!keepOpen) setView('detail');
         } else {
             addProduct(data);
-            setView('list');
+            addToast('Produkt vytvořen 🆕', 'success');
+            if (!keepOpen) setView('list');
         }
     };
 
@@ -49,6 +55,55 @@ export function ProductsPage() {
             onCancel: () => setConfirmDialog(null)
         });
     };
+
+    const handleImportCSV = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            try {
+                const parsedProducts = parseProductCSV(event.target.result);
+                if (parsedProducts.length === 0) throw new Error('Žádné produkty k importu');
+
+                if (!window.confirm(`Nalezeno ${parsedProducts.length} produktů. Chcete je importovat?`)) return;
+
+                addToast('Importuji produkty...', 'info');
+                const batch = writeBatch(db);
+
+                parsedProducts.forEach(p => {
+                    const newProdRef = doc(collection(db, 'products'));
+                    const prodId = newProdRef.id;
+
+                    // Add Product
+                    batch.set(newProdRef, { ...p, createdAt: new Date().toISOString() });
+
+                    // Add Initial Stock Movement if stock > 0
+                    if (Number(p.stock) > 0) {
+                        const moveRef = doc(collection(db, 'stock_movements'));
+                        batch.set(moveRef, {
+                            id: moveRef.id,
+                            productId: prodId,
+                            count: Number(p.stock),
+                            type: 'import',
+                            date: new Date().toISOString(),
+                            note: 'CSV Import'
+                        });
+                    }
+                });
+
+                await batch.commit();
+                addToast(`Úspěšně importováno ${parsedProducts.length} produktů ✅`, 'success');
+            } catch (error) {
+                console.error(error);
+                addToast('Chyba importu: ' + error.message, 'error');
+            }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+    };
+
+
 
     if (view === 'detail' && selectedProduct) {
         return (
@@ -102,11 +157,34 @@ export function ProductsPage() {
                         </div>
                         <p className="text-muted">Správa produktů a skladových zásob.</p>
                     </div>
-                    <button className="btn btn-primary" onClick={handleCreate}>
-                        + Přidat Produkt
-                    </button>
-                </div>
-            </header>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        {products.length === 0 && (
+                            <>
+                                <button
+                                    className="btn btn-secondary"
+                                    onClick={downloadProductTemplate}
+                                    title="Stáhnout šablonu pro Excel"
+                                >
+                                    📄 Šablona
+                                </button>
+                                <label className="btn btn-secondary" style={{ cursor: 'pointer' }} title="Nahrát vyplněnou šablonu">
+                                    📥 Import CSV
+                                    <input
+                                        type="file"
+                                        accept=".csv"
+                                        onChange={handleImportCSV}
+                                        style={{ display: 'none' }}
+                                    />
+                                </label>
+                            </>
+                        )}
+
+                        <button className="btn btn-primary" onClick={handleCreate}>
+                            + Přidat Produkt
+                        </button>
+                    </div>
+                </div >
+            </header >
 
             <div className="content-area">
                 <ProductList
@@ -116,17 +194,23 @@ export function ProductsPage() {
                 />
             </div>
 
-            {showHelp && (
-                <ProductCategoryHelp onClose={() => setShowHelp(false)} />
-            )}
+            {
+                showHelp && (
+                    <ProductCategoryHelp onClose={() => setShowHelp(false)} />
+                )
+            }
 
-            {confirmDialog && (
-                <ConfirmDialog
-                    message={confirmDialog.message}
-                    onConfirm={confirmDialog.onConfirm}
-                    onCancel={confirmDialog.onCancel}
-                />
-            )}
-        </div>
+
+
+            {
+                confirmDialog && (
+                    <ConfirmDialog
+                        message={confirmDialog.message}
+                        onConfirm={confirmDialog.onConfirm}
+                        onCancel={confirmDialog.onCancel}
+                    />
+                )
+            }
+        </div >
     );
 }

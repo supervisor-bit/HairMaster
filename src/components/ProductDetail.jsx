@@ -34,7 +34,7 @@ export function ProductDetail({ product, onEdit, onBack }) {
                                         color: isLow ? '#ef4444' : '#4ade80',
                                         fontWeight: 'bold'
                                     }}>
-                                    Skladem: {product.stock} ks
+                                    Skladem: {Number(product.stock).toLocaleString('cs-CZ', { maximumFractionDigits: 2 })} ks
                                 </span>
                             </div>
                         </div>
@@ -106,7 +106,7 @@ export function ProductDetail({ product, onEdit, onBack }) {
                                             fontWeight: 'bold',
                                             color: h.count > 0 ? '#10b981' : '#ef4444'
                                         }}>
-                                            {h.count > 0 ? '+' : ''}{h.count} ks
+                                            {h.count > 0 ? '+' : ''}{Number(h.count).toLocaleString('cs-CZ', { maximumFractionDigits: 2 })} ks
                                         </td>
                                         <td style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{h.note || '-'}</td>
                                     </tr>

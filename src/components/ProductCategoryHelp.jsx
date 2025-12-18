@@ -56,6 +56,15 @@ export function ProductCategoryHelp({ onClose }) {
                                     Matrix SoColor 6N, Inoa 5.3
                                 </td>
                             </tr>
+                            <tr>
+                                <td style={{ padding: '12px', borderBottom: '1px solid var(--border-color)', fontWeight: 'bold', color: 'var(--accent)' }}>Přeliv (Demi-permanent)</td>
+                                <td style={{ padding: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                                    Stejné chování jako Barva. Používá se pro tónování a přelivy (demi-permanentní barvy).
+                                </td>
+                                <td style={{ padding: '12px', borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
+                                    Matrix SoColor Sync, Dialight
+                                </td>
+                            </tr>
                             <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
                                 <td style={{ padding: '12px', borderBottom: '1px solid var(--border-color)', fontWeight: 'bold', color: '#3b82f6' }}>Oxidant (Developer)</td>
                                 <td style={{ padding: '12px', borderBottom: '1px solid var(--border-color)' }}>

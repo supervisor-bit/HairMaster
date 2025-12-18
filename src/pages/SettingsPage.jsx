@@ -4,6 +4,9 @@ import { useToast } from '../components/Toast';
 import { useAuth } from '../contexts/AuthContext';
 import { updatePassword } from 'firebase/auth'; // [NEW] Import updatePassword
 import { useSalonInfo } from '../hooks/useSalonInfo';
+import { clearDatabase } from '../utils/clearDatabase';
+import { exportData, restoreDataSafe } from '../utils/backupRestore';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 
 export function SettingsPage() {
     const { salonInfo, updateSalonInfo } = useSalonInfo();
@@ -84,8 +87,81 @@ export function SettingsPage() {
 
 
 
+
+
+    // Data Reset Logic
+    const [showConfirmReset, setShowConfirmReset] = useState(false);
+
+    const handleResetData = async () => {
+        try {
+            await clearDatabase();
+            addToast('Všechna data byla úspěšně vymazána', 'success');
+            setShowConfirmReset(false);
+            window.location.reload(); // Reload to clear any cached state
+        } catch (error) {
+            console.error(error);
+            addToast('Chyba při mazání dat', 'error');
+        }
+    };
+
+
+
+    // Backup & Restore Logic
+    const handleExport = async () => {
+        try {
+            addToast('Připravuji zálohu...', 'info');
+            const data = await exportData();
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `hairmaster_backup_${new Date().toISOString().slice(0, 10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            addToast('Záloha stažena ✅', 'success');
+        } catch (error) {
+            console.error(error);
+            addToast('Chyba při exportu dat', 'error');
+        }
+    };
+
+    const handleImportFile = async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const json = JSON.parse(e.target.result);
+                // Simple validation check
+                if (!json.version || !json.data) throw new Error('Neplatný soubor zálohy');
+
+                if (window.confirm('Opravdu chcete obnovit data ze zálohy? SOUČASNÁ DATA MOHOU BÝT PŘEPSÁNA.')) {
+                    addToast('Obnovuji data...', 'info');
+                    await restoreDataSafe(json);
+                    addToast('Data úspěšně obnovena! 🔄', 'success');
+                    setTimeout(() => window.location.reload(), 1500);
+                }
+            } catch (error) {
+                console.error(error);
+                addToast('Chyba při obnově: ' + error.message, 'error');
+            }
+        };
+        reader.readAsText(file);
+        event.target.value = ''; // Reset input
+    };
+
     return (
         <div className="page-layout fade-in">
+            {showConfirmReset && (
+                <ConfirmDialog
+                    message="Opravdu chcete VYMAZAT VŠECHNA DATA? Tato akce je nevratná! Přijdete o všechny klienty, produkty a historii."
+                    onConfirm={handleResetData}
+                    onCancel={() => setShowConfirmReset(false)}
+                />
+            )}
             <header className="page-header">
                 <div>
                     <h2 style={{ fontSize: '1.8rem', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -389,6 +465,57 @@ export function SettingsPage() {
                                     Změnit heslo
                                 </button>
                             </div>
+                        </div>
+                    </div>
+
+                    {/* App Info */}
+                    {/* Backup Section */}
+                    <div className="card">
+                        <h3 style={{ marginBottom: 'var(--spacing-md)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span>💾</span> Zálohování a Obnova
+                        </h3>
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: 'var(--spacing-md)' }}>
+                            Stáhněte si kompletní zálohu dat do souboru nebo obnovte data ze zálohy.
+                        </p>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+                            <button
+                                className="btn btn-secondary"
+                                onClick={handleExport}
+                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                            >
+                                <span>⬇️</span> Stáhnout zálohu (JSON)
+                            </button>
+
+                            <label className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer' }}>
+                                <span>⬆️</span> Obnovit ze zálohy
+                                <input
+                                    type="file"
+                                    accept=".json"
+                                    onChange={handleImportFile}
+                                    style={{ display: 'none' }}
+                                />
+                            </label>
+                        </div>
+                    </div>
+
+                    {/* Danger Zone */}
+                    <div className="card" style={{ border: '1px solid rgba(239, 68, 68, 0.3)', background: 'rgba(239, 68, 68, 0.05)' }}>
+                        <h3 style={{ marginBottom: 'var(--spacing-md)', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#ef4444' }}>
+                            <span>⚠️</span> Správa dat (Nebezpečná zóna)
+                        </h3>
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: 'var(--spacing-md)' }}>
+                            Zde můžete vymazat veškerá data aplikace (klienty, produkty, historii).
+                            Použijte pouze pokud chcete začít úplně od nuly.
+                            <strong>Tato akce je nevratná.</strong>
+                        </p>
+                        <div style={{ textAlign: 'right' }}>
+                            <button
+                                className="btn"
+                                style={{ background: '#ef4444', color: 'white', border: 'none' }}
+                                onClick={() => setShowConfirmReset(true)}
+                            >
+                                🗑️ Vymazat všechna data
+                            </button>
                         </div>
                     </div>
 

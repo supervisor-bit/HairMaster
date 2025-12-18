@@ -34,9 +34,23 @@ export function ProductForm({ product, onSubmit, onCancel }) {
         }
     }, [product]);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = (e, keepOpen = false) => {
         e.preventDefault();
-        onSubmit(formData);
+        onSubmit(formData, keepOpen);
+
+        if (keepOpen) {
+            // Reset for next entry but keep context (Brand, Category, Unit...)
+            setFormData(prev => ({
+                ...prev,
+                name: '',
+                ean: '',
+                stock: '',
+                price: '',
+                description: ''
+            }));
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
     };
 
     // Handler for unit change, potentially clearing packageSize if unit is 'ks'
@@ -144,6 +158,7 @@ export function ProductForm({ product, onSubmit, onCancel }) {
                                                 >
                                                     <option value="other">Ostatní / Nerozlišeno</option>
                                                     <option value="color">Barva (Tuba)</option>
+                                                    <option value="preliv">Přeliv (Demi-permanent)</option>
                                                     <option value="oxidant">Oxidant / Vyvíječ</option>
                                                     <option value="bleach">Melír (Prášek)</option>
                                                     <option value="care">Péče (Šampon/Kondicionér)</option>
@@ -272,20 +287,24 @@ export function ProductForm({ product, onSubmit, onCancel }) {
                                     <input
                                         type="number"
                                         placeholder="Např. 2"
-                                        value={formData.stock}
+                                        value={formData.stock ? Math.round(Number(formData.stock) * 100) / 100 : ''}
                                         onChange={e => setFormData({ ...formData, stock: e.target.value })}
+                                        disabled={!!product} // Disable if editing existing product
                                         style={{
                                             width: '100%',
                                             padding: '12px 16px',
                                             borderRadius: '10px',
                                             border: '2px solid var(--border-color)',
-                                            background: 'var(--bg-tertiary)',
-                                            color: 'var(--text-primary)',
-                                            fontSize: '1rem'
+                                            background: product ? 'var(--bg-secondary)' : 'var(--bg-tertiary)',
+                                            color: product ? 'var(--text-muted)' : 'var(--text-primary)',
+                                            fontSize: '1rem',
+                                            cursor: product ? 'not-allowed' : 'text'
                                         }}
                                     />
                                     <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                                        Počet kusů na skladě
+                                        {product
+                                            ? 'Pro změnu množství použijte "Naskladnit" nebo "Inventuru"'
+                                            : 'Počáteční stav skladu'}
                                     </p>
                                 </div>
 
@@ -407,12 +426,23 @@ export function ProductForm({ product, onSubmit, onCancel }) {
                             borderTop: '1px solid var(--border-color)'
                         }}>
                             <button
-                                type="submit"
+                                type="button"
+                                onClick={(e) => handleSubmit(e, false)}
                                 className="btn btn-primary"
                                 style={{ flex: 1, padding: '12px', fontSize: '1rem', fontWeight: 600 }}
                             >
                                 ✓ Uložit produkt
                             </button>
+                            {!product && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => handleSubmit(e, true)}
+                                    className="btn btn-secondary"
+                                    style={{ flex: 1, padding: '12px', fontSize: '1rem', border: '1px solid var(--primary)', color: 'var(--primary)', background: 'rgba(139, 92, 246, 0.1)' }}
+                                >
+                                    + Uložit a další
+                                </button>
+                            )}
                             <button
                                 type="button"
                                 onClick={onCancel}
@@ -424,7 +454,7 @@ export function ProductForm({ product, onSubmit, onCancel }) {
                         </div>
                     </form>
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }
